@@ -1,0 +1,100 @@
+// selector for email rows
+const emailRowSelector = 'tr.zA';
+
+// summarizer api
+let summarizer;
+const SUMMARIZER_OPTIONS = {
+  type: 'key-points',
+  format: 'markdown',
+  length: 'short',
+};
+
+// returns a list of emails
+function findEmails() {
+  console.log('Finding Emails...');
+  const emailRows = document.querySelectorAll(emailRowSelector);
+  const emails = [];
+
+  if (emailRows.length > 0) {
+    console.log(`Found ${emailRows.length} email rows`);
+
+    // parse each email row
+    emailRows.forEach((row) => {
+      try {
+        // Sender info
+        const senderEl = row.querySelector('span[email]');
+        const nameEl = row.querySelector('span.yP, span.yW');
+        
+        // Subject (can be in different locations)
+        const subjectEl = row.querySelector('span.bog') || row.querySelector('.y2');
+        
+        // Date/time
+        const dateEl = row.querySelector('span.xW.xY, td.xW span');
+        
+        // Unread status
+        const isUnread = row.classList.contains('zE');
+        
+        // Has attachment
+        const hasAttachment = !!row.querySelector('span[title*="attachment"]');
+
+        if (isUnread) {
+          emails.push({
+            sender: senderEl ? senderEl.getAttribute('email') : 'Unknown',
+            senderName: nameEl ? nameEl.textContent.trim() : 'Unknown',
+            subject: subjectEl ? subjectEl.textContent.trim() : '(No subject)',
+            date: dateEl ? dateEl.textContent.trim() : 'Unknown',
+            isUnread: isUnread,
+            hasAttachment: hasAttachment
+          });
+        }
+      } catch (e) {
+        console.error('Error parsing email row:', e);
+      }
+    })
+    
+    console.log('Emails:', emails);
+  } else {
+    console.log('No emails found yet');
+  }
+
+  return emails;
+}
+
+// finds & summarizes emails if available
+async function summarizeEmails() {
+  const summarizer = await Summarizer.create(SUMMARIZER_OPTIONS);
+  const emails = findEmails();
+  const count = emails.length
+  
+  if (!emails) {
+    throw new Error('No emails found in inbox');
+  }
+
+  console.log('summarizing emails');
+  const emailsJson = JSON.stringify(emails);
+  console.log('emailsJson: ' + emailsJson);
+  const summary = await summarizer.summarize(emailsJson);
+  console.log('summary: ' + summary);
+  summarizer.destroy();
+
+  if (!summary) {
+    throw new Error('Empty summary response');
+  }
+
+  return { summary, count };
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'SUMMARIZE_EMAILS') {
+    summarizeEmails()
+    .then((summary) => sendResponse({ success: true, summary }))
+    .catch((error) => sendResponse({ success: false, error: error.message }));
+  } else if (message.type === 'REFRESH_DATA') {
+    console.log('content got it');
+    summarizeEmails()
+    .then(({ summary, count }) => sendResponse({ success: true, summary, count }))
+    .catch((error) => sendResponse({ success: false, error: error.message }));
+  }
+
+  return true;
+});

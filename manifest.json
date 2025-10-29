@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Digestify",
+  "version": "1.0",
+  "description": "An easy way to digest your Gmail inbox",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "contextMenus",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://mail.google.com/*"
+  ],
+  "action": {
+    "default_title": "Digestify"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
