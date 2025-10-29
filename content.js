@@ -61,37 +61,27 @@ function findEmails() {
 }
 
 // finds & summarizes emails if available
-async function summarizeEmails() {
+async function refreshInbox() {
   const summarizer = await Summarizer.create(SUMMARIZER_OPTIONS);
   const emails = findEmails();
+  let summary = 'No emails found in inbox';
   const count = emails.length
   
-  if (!emails) {
-    throw new Error('No emails found in inbox');
+  if (!emails || count <= 0) {
+    return { summary, count };
   }
 
-  console.log('summarizing emails');
   const emailsJson = JSON.stringify(emails);
-  console.log('emailsJson: ' + emailsJson);
-  const summary = await summarizer.summarize(emailsJson);
-  console.log('summary: ' + summary);
+  summary = await summarizer.summarize(emailsJson);
   summarizer.destroy();
-
-  if (!summary) {
-    throw new Error('Empty summary response');
-  }
 
   return { summary, count };
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'SUMMARIZE_EMAILS') {
-    summarizeEmails()
-    .then((summary) => sendResponse({ success: true, summary }))
-    .catch((error) => sendResponse({ success: false, error: error.message }));
-  } else if (message.type === 'REFRESH_DATA') {
+  if (message.type === 'REFRESH_DATA') {
     console.log('content got it');
-    summarizeEmails()
+    refreshInbox()
     .then(({ summary, count }) => sendResponse({ success: true, summary, count }))
     .catch((error) => sendResponse({ success: false, error: error.message }));
   }
