@@ -288,6 +288,32 @@ body {
   font-weight: 400;
 }
 
+/* Animated loading dots */
+.loading-dots {
+  display: inline-block;
+  position: relative;
+  width: 20px;
+  text-align: left;
+}
+
+.loading-dots::after {
+  content: '...';
+  display: inline-block;
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% {
+    content: '.';
+  }
+  40% {
+    content: '..';
+  }
+  60%, 100% {
+    content: '...';
+  }
+}
+
 /* Scrollbar */
 .content::-webkit-scrollbar,
 .email-list::-webkit-scrollbar {
