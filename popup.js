@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Refreshing data popup.js...');
 
         button.disabled = true;
-        const loadingDots = '<span class="loading-dots"></span>';
+        const loadingDots = '<span class="loading-dots"><span></span><span></span><span></span></span>';
         unreadCount.innerHTML = loadingDots;
         urgentTotal.innerHTML = loadingDots;
         laterTotal.innerHTML = loadingDots;
