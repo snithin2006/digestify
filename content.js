@@ -9,7 +9,6 @@ const SUMMARIZER_OPTIONS = {
   length: 'short',
 };
 
-// returns a list of emails
 function findEmails() {
   console.log('Finding Emails...');
   const emailRows = document.querySelectorAll(emailRowSelector);
@@ -60,28 +59,22 @@ function findEmails() {
   return emails;
 }
 
-// finds & summarizes emails if available
-async function refreshInbox() {
-  const summarizer = await Summarizer.create(SUMMARIZER_OPTIONS);
-  const emails = findEmails();
-  let summary = 'No emails found in inbox';
-  const count = emails.length
-  
-  if (!emails || count <= 0) {
-    return { summary, count };
-  }
+async function refreshCount() {
+  const unread = findEmails();
+  const unreadCount = unread.length;
 
-  const emailsJson = JSON.stringify(emails);
-  summary = await summarizer.summarize(emailsJson);
-  summarizer.destroy();
+  const urgent = findEmails();
+  const urgentCount = urgent.length;
 
-  return { summary, count };
+  const later = findEmails();
+  const laterCount = later.length;
+
+  return { unreadCount, urgentCount, laterCount };
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'REFRESH_DATA') {
-    console.log('content got it');
-    refreshInbox()
+    refreshCount()
     .then(({ summary, count }) => sendResponse({ success: true, summary, count }))
     .catch((error) => sendResponse({ success: false, error: error.message }));
   }
