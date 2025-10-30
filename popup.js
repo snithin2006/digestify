@@ -4,6 +4,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const urgentTotal = document.getElementById('urgent-total');
     const laterTotal = document.getElementById('later-total');
     
+    // View elements
+    const mainView = document.querySelector('.main-view');
+    const detailView = document.querySelector('.detail-view');
+    const backBtn = document.getElementById('back-btn');
+    const detailCategory = document.getElementById('detail-category');
+    const detailPriority = document.getElementById('detail-priority');
+    
     // Urgent category counts
     const workUrgentCount = document.getElementById('work-urgent-count');
     const schoolUrgentCount = document.getElementById('school-urgent-count');
@@ -61,5 +68,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         button.disabled = false;
+    });
+
+    // View transition functions
+    function showDetailView(category, priority) {
+        detailCategory.textContent = category;
+        detailPriority.textContent = priority;
+        
+        // Update priority badge styling
+        if (priority === 'Urgent') {
+            detailPriority.classList.remove('later');
+        } else {
+            detailPriority.classList.add('later');
+        }
+        
+        // Slide transition
+        mainView.classList.add('slide-left');
+        detailView.classList.add('active');
+    }
+
+    function showMainView() {
+        mainView.classList.remove('slide-left');
+        detailView.classList.remove('active');
+    }
+
+    // Back button handler
+    backBtn.addEventListener('click', showMainView);
+
+    // Add click handlers to all inbox headers
+    document.querySelectorAll('.inbox-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const category = header.querySelector('.inbox-label').textContent;
+            const section = header.closest('.section');
+            const priority = section.querySelector('.section-header h2').textContent;
+            
+            showDetailView(category, priority);
+        });
     });
 });
