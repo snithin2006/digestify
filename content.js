@@ -42,20 +42,6 @@ function findEmails() {
     // parse each email row
     emailRows.forEach((row) => {
       try {
-        // Thread ID
-        const idElement = row.querySelector('[data-legacy-thread-id]');
-        
-        let threadId = idElement 
-                    ? idElement.getAttribute('data-legacy-thread-id') 
-                    : null;
-                
-        if (!threadId || threadId.length < 10) {
-            console.warn('Failed to extract valid Thread ID from data-legacy-thread-id attribute.', row);
-            return; // Skip this row if ID extraction fails
-        }
-        
-        console.log('threadId:', threadId);
-
         // Sender info
         const senderEl = row.querySelector('span[email]');
         const nameEl = row.querySelector('span.yP, span.yW');
@@ -74,7 +60,6 @@ function findEmails() {
 
         if (isUnread) {
           globalEmailData.unread.push({
-            threadId: threadId,
             sender: senderEl ? senderEl.getAttribute('email') : 'Unknown',
             senderName: nameEl ? nameEl.textContent.trim() : 'Unknown',
             subject: subjectEl ? subjectEl.textContent.trim() : '(No subject)',
