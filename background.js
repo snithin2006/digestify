@@ -33,6 +33,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       });
     })
+  } else if (message.type === 'GET_SUMMARY') {
+    console.log('Getting summary background.js...');
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (!tab) {
+        sendResponse({ success: false, error: 'No active tab found' });
+        return;
+      }
+
+      chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_EMAILS', category: message.category, priority: message.priority }, (response) => { 
+        if (response && response.success) {
+          sendResponse({ 
+            success: true, 
+            summary: response.summary,
+          });
+        } else {
+          sendResponse({ success: false, error: response?.error || 'No response from content script' });
+        }
+      });
+    })
   }
 
   return true;

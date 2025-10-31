@@ -9,10 +9,32 @@ const SUMMARIZER_OPTIONS = {
   length: 'short',
 };
 
+// Global email storage - persists across function calls
+let globalEmailData = {
+  unread: [],
+  work: [],
+  school: [],
+  personal: [],
+  urgent: [],
+  later: [],
+  urgentWork: [],
+  laterWork: [],
+  urgentSchool: [],
+  laterSchool: [],
+  urgentPersonal: [],
+  laterPersonal: [],
+  urgentWorkSummary: '',
+  laterWorkSummary: '',
+  urgentSchoolSummary: '',
+  laterSchoolSummary: '',
+  urgentPersonalSummary: '',
+  laterPersonalSummary: '',
+};
+
 function findEmails() {
   console.log('Finding Emails...');
   const emailRows = document.querySelectorAll(emailRowSelector);
-  const emails = [];
+  globalEmailData.unread = [];
 
   if (emailRows.length > 0) {
     console.log(`Found ${emailRows.length} email rows`);
@@ -20,6 +42,20 @@ function findEmails() {
     // parse each email row
     emailRows.forEach((row) => {
       try {
+        // Thread ID
+        const idElement = row.querySelector('[data-legacy-thread-id]');
+        
+        let threadId = idElement 
+                    ? idElement.getAttribute('data-legacy-thread-id') 
+                    : null;
+                
+        if (!threadId || threadId.length < 10) {
+            console.warn('Failed to extract valid Thread ID from data-legacy-thread-id attribute.', row);
+            return; // Skip this row if ID extraction fails
+        }
+        
+        console.log('threadId:', threadId);
+
         // Sender info
         const senderEl = row.querySelector('span[email]');
         const nameEl = row.querySelector('span.yP, span.yW');
@@ -37,7 +73,8 @@ function findEmails() {
         const hasAttachment = !!row.querySelector('span[title*="attachment"]');
 
         if (isUnread) {
-          emails.push({
+          globalEmailData.unread.push({
+            threadId: threadId,
             sender: senderEl ? senderEl.getAttribute('email') : 'Unknown',
             senderName: nameEl ? nameEl.textContent.trim() : 'Unknown',
             subject: subjectEl ? subjectEl.textContent.trim() : '(No subject)',
@@ -50,16 +87,12 @@ function findEmails() {
         console.error('Error parsing email row:', e);
       }
     })
-    
-    console.log('Emails:', emails);
   } else {
     console.log('No emails found yet');
   }
-
-  return emails;
 }
 
-async function findInboxTypes(unread) {
+async function findInboxTypes() {
   console.log('starting inbox types');
 
   // Check availability first
@@ -75,12 +108,13 @@ async function findInboxTypes(unread) {
   });
   console.log('Session created successfully');
   
-  let work = [];
-  let school = [];
-  let personal = [];
+  // Clear global inbox types
+  globalEmailData.work = [];
+  globalEmailData.school = [];
+  globalEmailData.personal = [];
   let c = 1;
 
-  for (const email of unread) {
+  for (const email of globalEmailData.unread) {
     try {
       const prompt = `You are an email inbox classifier. Your task is to determine whether an email belongs to Work, School, or Personal categories.
 
@@ -129,11 +163,11 @@ Do not include any explanation, reasoning, or additional text. Just output one o
       const inboxType = result.trim().toLowerCase();
 
       if (inboxType === 'work') {
-        work.push(email);
+        globalEmailData.work.push(email);
       } else if (inboxType === 'school') {
-        school.push(email);
+        globalEmailData.school.push(email);
       } else {
-        personal.push(email);
+        globalEmailData.personal.push(email);
       }
 
       console.log('count:', c);
@@ -141,16 +175,15 @@ Do not include any explanation, reasoning, or additional text. Just output one o
     } catch (error) {
       console.error('Error classifying email:', email.subject, error);
       // Default to personal if classification fails
-      personal.push(email);
+      globalEmailData.personal.push(email);
       c++;
     }
   }
 
   console.log('done with inbox types');
-  return { work, school, personal };
 }
 
-async function findBuckets(inboxTypes) {
+async function findBuckets() {
   console.log('starting buckets');
 
   const session = await LanguageModel.create({
@@ -158,20 +191,18 @@ async function findBuckets(inboxTypes) {
   });
   console.log('Buckets session created successfully');
   
-  const work = inboxTypes.work;
-  const school = inboxTypes.school;
-  const personal = inboxTypes.personal;
-  let urgent = [];
-  let later = [];
-  let urgentWork = [];
-  let laterWork = [];
-  let urgentSchool = [];
-  let laterSchool = [];
-  let urgentPersonal = [];
-  let laterPersonal = [];
+  // Clear and use global storage
+  globalEmailData.urgent = [];
+  globalEmailData.later = [];
+  globalEmailData.urgentWork = [];
+  globalEmailData.laterWork = [];
+  globalEmailData.urgentSchool = [];
+  globalEmailData.laterSchool = [];
+  globalEmailData.urgentPersonal = [];
+  globalEmailData.laterPersonal = [];
   let c = 1;
 
-  for (const email of work) {
+  for (const email of globalEmailData.work) {
     try {
       const prompt = `You are an intelligent email classifier specializing in workplace communications. Your task is to analyze an email and determine if it requires urgent attention or can be followed up with later.
 
@@ -217,11 +248,11 @@ Do not include any explanation, reasoning, or additional text. Just output one o
       console.log('Bucket:', bucket);
 
       if (bucket === 'urgent') {
-        urgent.push(email);
-        urgentWork.push(email);
+        globalEmailData.urgent.push(email);
+        globalEmailData.urgentWork.push(email);
       } else {
-        later.push(email);
-        laterWork.push(email);
+        globalEmailData.later.push(email);
+        globalEmailData.laterWork.push(email);
       }
 
       console.log('count:', c);
@@ -229,13 +260,13 @@ Do not include any explanation, reasoning, or additional text. Just output one o
     } catch (error) {
       console.error('Error classifying work email:', email.subject, error);
       // Default to later if classification fails
-      later.push(email);
-      laterWork.push(email);
+      globalEmailData.later.push(email);
+      globalEmailData.laterWork.push(email);
       c++;
     }
   }
 
-  for (const email of school) {
+  for (const email of globalEmailData.school) {
     try {
       const prompt = `You are an intelligent email classifier specializing in academic communications. Your task is to analyze an email and determine if it requires urgent attention or can be followed up with later.
 
@@ -288,11 +319,11 @@ Do not include any explanation, reasoning, or additional text. Just output one o
       console.log('Bucket:', bucket);
 
       if (bucket === 'urgent') {
-        urgent.push(email);
-        urgentSchool.push(email);
+        globalEmailData.urgent.push(email);
+        globalEmailData.urgentSchool.push(email);
       } else {
-        later.push(email);
-        laterSchool.push(email);
+        globalEmailData.later.push(email);
+        globalEmailData.laterSchool.push(email);
       }
 
       console.log('count:', c);
@@ -300,13 +331,13 @@ Do not include any explanation, reasoning, or additional text. Just output one o
     } catch (error) {
       console.error('Error classifying school email:', email.subject, error);
       // Default to later if classification fails
-      later.push(email);
-      laterSchool.push(email);
+      globalEmailData.later.push(email);
+      globalEmailData.laterSchool.push(email);
       c++;
     }
   }
 
-  for (const email of personal) {
+  for (const email of globalEmailData.personal) {
     try {
       const prompt = `You are an intelligent email classifier specializing in personal communications. Your task is to analyze an email and determine if it requires urgent attention or can be followed up with later.
 
@@ -360,11 +391,11 @@ Do not include any explanation, reasoning, or additional text. Just output one o
       console.log('Bucket:', bucket);
 
       if (bucket === 'urgent') {
-        urgent.push(email);
-        urgentPersonal.push(email);
+        globalEmailData.urgent.push(email);
+        globalEmailData.urgentPersonal.push(email);
       } else {
-        later.push(email);
-        laterPersonal.push(email);
+        globalEmailData.later.push(email);
+        globalEmailData.laterPersonal.push(email);
       }
 
       console.log('count:', c);
@@ -372,54 +403,151 @@ Do not include any explanation, reasoning, or additional text. Just output one o
     } catch (error) {
       console.error('Error classifying personal email:', email.subject, error);
       // Default to later if classification fails
-      later.push(email);
-      laterPersonal.push(email);
+      globalEmailData.later.push(email);
+      globalEmailData.laterPersonal.push(email);
       c++;
     }
   }
 
   console.log('done with buckets');
-  return { urgent, later, urgentWork, laterWork, urgentSchool, laterSchool, urgentPersonal, laterPersonal };
 }
 
-async function refreshCount() {
-  // unread emails
-  const unread = findEmails();
-  const unreadCount = unread.length;
+async function summarizeEmails(emails) {
+  if (!emails || emails.length === 0) {
+    return 'No emails to summarize';
+  }
+
+  // Check if Summarizer API is available
+  const canSummarize = await Summarizer.availability();
+  if (canSummarize === 'unavailable') {
+    console.error('Summarizer API not available');
+    return 'Summary not available';
+  }
+
+  // Create summarizer with options
+  const summarizer = await Summarizer.create(SUMMARIZER_OPTIONS);
+
+  try {
+    // Combine all emails into one text block
+    const allEmailsText = emails.map((email, index) => `
+Email ${index + 1}:
+From: ${email.senderName} (${email.sender})
+Subject: ${email.subject}
+Date: ${email.date}
+---`).join('\n\n');
+
+    // Summarize all emails in one call
+    const summary = await summarizer.summarize(allEmailsText, {
+      context: 'These are emails from an inbox. Provide a brief overview of what these emails are about and highlight any important actions needed.'
+    });
+
+    // Clean up
+    summarizer.destroy();
+
+    return summary;
+  } catch (error) {
+    console.error('Error summarizing emails:', error);
+    summarizer.destroy();
+    return 'Unable to generate summary';
+  }
+}
+
+async function refresh() {
+  // Find and classify emails
+  findEmails();
+  const unreadCount = globalEmailData.unread.length;
   console.log(unreadCount);
 
   if (unreadCount === 0) {
     return { unreadCount: 0, urgentCount: 0, laterCount: 0, urgentWorkCount: 0, laterWorkCount: 0, urgentSchoolCount: 0, laterSchoolCount: 0, urgentPersonalCount: 0, laterPersonalCount: 0 };
   }
   
-  // inbox types: { work, school, personal }
-  const inboxTypes = await findInboxTypes(unread);
-  console.log('inboxTypes', inboxTypes);
+  // Classify inbox types
+  await findInboxTypes();
+  console.log('inboxTypes', { work: globalEmailData.work.length, school: globalEmailData.school.length, personal: globalEmailData.personal.length });
 
-  // buckets: { urgent, later, urgentWork, laterWork, urgentSchool, laterSchool, urgentPersonal, laterPersonal }
-  const bucketTypes = await findBuckets(inboxTypes);
-  console.log('bucketTypes', bucketTypes);
-  // total urgent emails
-  const urgentCount = bucketTypes.urgent.length;
-  const laterCount = bucketTypes.later.length;
-  // work emails
-  const urgentWorkCount = bucketTypes.urgentWork.length;
-  const laterWorkCount = bucketTypes.laterWork.length;
-  // school emails
-  const urgentSchoolCount = bucketTypes.urgentSchool.length;
-  const laterSchoolCount = bucketTypes.laterSchool.length;
-  // personal emails
-  const urgentPersonalCount = bucketTypes.urgentPersonal.length;
-  const laterPersonalCount = bucketTypes.laterPersonal.length;
+  // Classify buckets
+  await findBuckets();
+  console.log('bucketTypes', { urgent: globalEmailData.urgent.length, later: globalEmailData.later.length });
+  
+  // Get counts from global storage
+  const urgentCount = globalEmailData.urgent.length;
+  const laterCount = globalEmailData.later.length;
+  const urgentWorkCount = globalEmailData.urgentWork.length;
+  const laterWorkCount = globalEmailData.laterWork.length;
+  const urgentSchoolCount = globalEmailData.urgentSchool.length;
+  const laterSchoolCount = globalEmailData.laterSchool.length;
+  const urgentPersonalCount = globalEmailData.urgentPersonal.length;
+  const laterPersonalCount = globalEmailData.laterPersonal.length;
+
+  // Summarize emails
+  globalEmailData.urgentWorkSummary = await summarizeEmails(globalEmailData.urgentWork);
+  globalEmailData.laterWorkSummary = await summarizeEmails(globalEmailData.laterWork);
+  globalEmailData.urgentSchoolSummary = await summarizeEmails(globalEmailData.urgentSchool);
+  globalEmailData.laterSchoolSummary = await summarizeEmails(globalEmailData.laterSchool);
+  globalEmailData.urgentPersonalSummary = await summarizeEmails(globalEmailData.urgentPersonal);
+  globalEmailData.laterPersonalSummary = await summarizeEmails(globalEmailData.laterPersonal);
 
   return { unreadCount, urgentCount, laterCount, urgentWorkCount, laterWorkCount, urgentSchoolCount, laterSchoolCount, urgentPersonalCount, laterPersonalCount };
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'REFRESH_DATA') {
-    refreshCount()
-    .then(({ unreadCount, urgentCount, laterCount, urgentWorkCount, laterWorkCount, urgentSchoolCount, laterSchoolCount, urgentPersonalCount, laterPersonalCount }) => sendResponse({ success: true, unreadCount, urgentCount, laterCount, urgentWorkCount, laterWorkCount, urgentSchoolCount, laterSchoolCount, urgentPersonalCount, laterPersonalCount }))
-    .catch((error) => sendResponse({ success: false, error: error.message }));
+    refresh()
+      .then(({ 
+        unreadCount, 
+        urgentCount, 
+        laterCount, 
+        urgentWorkCount, 
+        laterWorkCount, 
+        urgentSchoolCount, 
+        laterSchoolCount, 
+        urgentPersonalCount, 
+        laterPersonalCount 
+      }) => {
+        sendResponse({ 
+          success: true, 
+          unreadCount, 
+          urgentCount, 
+          laterCount, 
+          urgentWorkCount, 
+          laterWorkCount, 
+          urgentSchoolCount, 
+          laterSchoolCount, 
+          urgentPersonalCount, 
+          laterPersonalCount 
+        });
+      })
+      .catch((error) => {
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.type === 'SUMMARIZE_EMAILS') {
+    const { category, priority } = message;
+    
+    // Get emails from global storage based on category and priority
+    let summary = '';
+    const categoryLower = category.toLowerCase();
+    const priorityLower = priority.toLowerCase();
+    
+    if (priorityLower === 'urgent') {
+      if (categoryLower === 'work') {
+        summary = globalEmailData.urgentWorkSummary;
+      } else if (categoryLower === 'school') {
+        summary = globalEmailData.urgentSchoolSummary;
+      } else if (categoryLower === 'personal') {
+        summary = globalEmailData.urgentPersonalSummary;
+      }
+    } else {
+      if (categoryLower === 'work') {
+        summary = globalEmailData.laterWorkSummary;
+      } else if (categoryLower === 'school') {
+        summary = globalEmailData.laterSchoolSummary;
+      } else if (categoryLower === 'personal') {
+        summary = globalEmailData.laterPersonalSummary;
+      }
+    }
+
+    sendResponse({ success: true, summary });
   }
 
   return true;

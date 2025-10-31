@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const backBtn = document.getElementById('back-btn');
     const detailCategory = document.getElementById('detail-category');
     const detailPriority = document.getElementById('detail-priority');
+    const emailsSummary = document.getElementById('emails-summary');
     
     // Urgent category counts
     const workUrgentCount = document.getElementById('work-urgent-count');
@@ -101,8 +102,36 @@ document.addEventListener('DOMContentLoaded', () => {
             const category = header.querySelector('.inbox-label').textContent;
             const section = header.closest('.section');
             const priority = section.querySelector('.section-header h2').textContent;
-            
+
+            // Show loading state
+            emailsSummary.innerHTML = '<div class="loading-state"><span class="loading-dots"><span></span><span></span><span></span></span></div>';
+
             showDetailView(category, priority);
+
+            chrome.runtime.sendMessage({ type: 'GET_SUMMARY', category, priority }, (response) => {
+                if (response && response.success) {
+                    // Convert markdown bullets to HTML list
+                    let formattedSummary = response.summary
+                        .split('\n')
+                        .filter(line => line.trim())
+                        .map(line => line.replace(/^\*\s*/, ''))
+                        .filter(line => line.trim())
+                        .map(line => `<li>${line}</li>`)
+                        .join('');
+                    
+                    if (formattedSummary) {
+                        formattedSummary = `<ul>${formattedSummary}</ul>`;
+                    }
+                    
+                    emailsSummary.innerHTML = `<div class="summary-text">${formattedSummary || response.summary}</div>`;
+                } else {
+                    emailsSummary.innerHTML = '<div class="empty-state"><p>Error loading summary</p></div>';
+                    console.error('Error:', response?.error || 'Unknown error');
+                }
+            });
         });
     });
+
+    // Auto-refresh on popup load
+    button.click();
 });
